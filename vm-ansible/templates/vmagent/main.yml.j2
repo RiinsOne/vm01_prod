@@ -1,0 +1,8 @@
+global:
+  scrape_interval: {{ scrape_interval }}
+  evaluation_interval: {{ evaluation_interval }}
+
+scrape_config_files:
+  - kafka-configs/*.yml
+  - node-exporter-configs/*.yml
+  - app-configs/*.yml

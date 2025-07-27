@@ -1,0 +1,20 @@
+[Unit]
+Description=VictoriaMetrics Storage
+After=network.target
+
+[Service]
+User={{ vm_user }}
+Group={{ vm_group }}
+ExecStart={{ vm_data_dir }}/vmstorage/bin/vmstorage-prod \
+  -storageDataPath={{ data_dir }}/{{ vm_data_dir }}/vmstorage/data \
+  -retentionPeriod={{ vmstorage_retention }} \
+  -httpListenAddr=:8481 \
+  -vminsertAddr=:{{ vmstorage_port }} \
+  -vmselectAddr=:{{ vmstorage_port }}
+StandardOutput=append:{{ data_dir }}/{{ vm_data_dir }}/vmstorage/logs/vmstorage.log
+StandardError=append:{{ data_dir }}/{{ vm_data_dir }}/vmstorage/logs/vmstorage-error.log
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

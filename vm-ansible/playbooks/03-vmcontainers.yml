@@ -1,0 +1,113 @@
+---
+- name: Deploy VictoriaMetrics containers via Docker Compose
+  hosts: vm_services  # Группа серверов с Docker (vm-services-01, vm-services-02)
+  become: yes
+  vars_files:
+    - ../vars.yml
+
+  tasks:
+    - name: Ensure Docker directories exist
+      ansible.builtin.file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0755'
+        recurse: yes
+      loop:
+        - "vmagent/configs"
+        - "vmagent/configs/kafka-configs"
+        - "vmagent/configs/node-exporter-configs"
+        - "vmagent/configs/app-configs"
+        - "vmagent/logs"
+        - "vminsert/logs"
+        - "vmselect/logs"
+        - "vmauth/logs"
+        - "vmauth/configs"
+        - "docker-compose"
+
+    - name: Check if vmagent config exists
+      stat:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmagent/configs/main.yml"
+      register: vmagent_config_exists
+
+    - name: Copy vmagent config
+      template:
+        src: ../templates/vmagent/main.yml.j2
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmagent/configs/main.yml"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0644'
+      when: not vmagent_config_exists.stat.exists
+      register: copied_vmagent_config
+
+    - name: Check if vmauth config exists
+      stat:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmauth/configs/config.yml"
+      register: vmauth_config_exists
+
+    - name: Copy vmauth config
+      template:
+        src: ../templates/vmauth/config.yml.j2
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmauth/configs/config.yml"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0644'
+      when: not vmauth_config_exists.stat.exists
+      register: copied_vmauth_config
+
+    - name: Check if docker-compose.yml exists
+      stat:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/docker-compose/docker-compose.yml"
+      register: docker_compose_yml_exists
+
+    - name: Deploy docker-compose.yml
+      template:
+        src: "../templates/docker-compose.yml.j2"
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/docker-compose/docker-compose.yml"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0644'
+      when: not docker_compose_yml_exists.stat.exists
+      register: copied_docker_compose_yml
+
+    - name: Start VMStorage first
+      systemd:
+        name: vmstorage
+        state: started
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['vm_storage'] }}"
+
+    - name: Start containers using docker-compose
+      ansible.builtin.command:
+        cmd: docker-compose up -d --pull always
+        chdir: "{{ data_dir }}/{{ vm_data_dir }}/docker-compose"
+      register: compose_up
+      changed_when: >
+        "'Creating' in compose_up.stdout or
+         'Starting' in compose_up.stdout or
+         'Pulling' in compose_up.stdout"
+      # when:
+      #   - copied_vmagent_config.changed
+      #   - copied_vmauth_config.changed
+      #   - copied_docker_compose_yml.changed
+
+    - name: Verify containers are running
+      ansible.builtin.command:
+        cmd: docker inspect --format '{{ '{{' }}.State.Status{{ '}}' }}' {{ item }}
+      register: container_status
+      loop:
+        - vmagent
+        - vminsert
+        - vmselect
+        - vmauth
+      changed_when: false
+      failed_when: "'running' not in container_status.stdout"
+      when: compose_up.changed
+
+    - name: Final check VMStorage
+      ansible.builtin.command: "curl -s http://vm-storage-01:8482/health"
+      register: vmstorage_health
+      until: vmstorage_health.stdout == "OK"
+      retries: 5
+      delay: 3

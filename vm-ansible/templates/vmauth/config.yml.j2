@@ -1,0 +1,13 @@
+users:
+  - url_map:
+      # Балансировка INSERT между всеми нодами
+      - src_paths: ["/insert", "/insert/.*"]
+        url_prefix:
+          - "http://vm-services-01:8480?health_check=/health"
+          - "http://vm-services-02:8480?health_check=/health"
+
+      # Балансировка SELECT между всеми нодами
+      - src_paths: ["/", "/select", "/select/.*", "/api/.*", "/prometheus/.*", "/vmui/.*"]
+        url_prefix:
+          - "http://vm-services-01:8481?health_check=/health"
+          - "http://vm-services-02:8481?health_check=/health"

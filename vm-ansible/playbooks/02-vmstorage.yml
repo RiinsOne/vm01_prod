@@ -1,0 +1,139 @@
+---
+- hosts: vm_storage
+  become: yes
+  vars_files:
+    - ../vars.yml
+  vars:
+    # vm_version: "1.120.0"
+    vm_cluster_url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v{{ vm_version }}/victoria-metrics-linux-amd64-v{{ vm_version }}-cluster.tar.gz"
+    vm_cluster_checksum: "sha256:https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v{{ vm_version }}/victoria-metrics-linux-amd64-v{{ vm_version }}-cluster_checksums.txt"
+
+    vmutils_url: "https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v{{ vm_version }}/vmutils-linux-amd64-v{{ vm_version }}.tar.gz"
+    vmutils_checksum: "sha256:https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v{{ vm_version }}/vmutils-linux-amd64-v{{ vm_version }}_checksums.txt"
+
+  tasks:
+    # - name: Create Main App Dir
+    #   file:
+    #     path: "{{ data_dir }}"
+    #     state: directory
+    #     owner: root
+    #     group: root
+    #     mode: "0755"
+
+    # ======================
+    # VMStorage часть
+    # ======================
+    - name: Create VMStorage directories
+      file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/{{ item }}"
+        state: directory
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: "0755"
+      loop:
+        - "bin"
+        - "data"
+        - "logs"
+        - "service"
+
+    - name: Download VictoriaMetrics Cluster
+      ansible.builtin.get_url:
+        url: "{{ vm_cluster_url }}"
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/bin/vm-cluster-{{ vm_version }}.tar.gz"
+        checksum: "{{ vm_cluster_checksum }}"
+      register: download_vmcluster
+
+    - name: Extract VMCluster to bin
+      ansible.builtin.unarchive:
+        src: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/bin/vm-cluster-{{ vm_version }}.tar.gz"
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/bin/"
+        remote_src: yes
+      when: download_vmcluster is defined and download_vmcluster.changed
+      register: extract_vmcluster
+
+    - name: Set permissions for VMStorage binaries
+      file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/bin/"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        recurse: yes
+        mode: '0755'
+      when: extract_vmcluster is defined and extract_vmcluster.changed
+
+    - name: Create service directory
+      file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/service"
+        state: directory
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0755'
+      # register: created_service_dir
+
+    - name: Check if vmstorage.service exists
+      stat:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/service/vmstorage.service"
+      register: vmstorage_service_stat
+
+    - name: Configure VMStorage service
+      template:
+        src: ../templates/vmstorage/service.j2
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/service/vmstorage.service"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0644'
+      when: not vmstorage_service_stat.stat.exists
+      register: configured_vmstorage_service
+
+    - name: Create systemd symlink
+      file:
+        src: "{{ data_dir }}/{{ vm_data_dir }}/vmstorage/service/vmstorage.service"
+        dest: /etc/systemd/system/vmstorage.service
+        state: link
+        owner: root
+        group: root
+        mode: '0644'
+      when: configured_vmstorage_service is defined and configured_vmstorage_service.changed
+
+    - name: Enable VMStorage service and Systemd daemon reload
+      systemd:
+        name: vmstorage
+        enabled: yes
+        daemon_reload: yes
+
+    # ======================
+    # VMUtils часть
+    # ======================
+    - name: Create VMUtils directories
+      file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmutils/{{ item }}"
+        state: directory
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        mode: '0755'
+      loop:
+        - "bin"
+        - "logs"
+
+    - name: Download VMUtils package
+      ansible.builtin.get_url:
+        url: "{{ vmutils_url }}"
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmutils/bin/vmutils-{{ vm_version }}.tar.gz"
+        checksum: "{{ vmutils_checksum }}"
+      register: download_vmutils
+
+    - name: Extract VMUtils to bin
+      ansible.builtin.unarchive:
+        src: "{{ data_dir }}/{{ vm_data_dir }}/vmutils/bin/vmutils-{{ vm_version }}.tar.gz"
+        dest: "{{ data_dir }}/{{ vm_data_dir }}/vmutils/bin/"
+        remote_src: yes
+      when: download_vmutils is defined and download_vmutils.changed
+      register: extract_vmutils
+
+    - name: Set permissions for VMUtils binaries
+      file:
+        path: "{{ data_dir }}/{{ vm_data_dir }}/vmutils/bin/"
+        owner: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        recurse: yes
+        mode: '0755'
+      when: extract_vmutils is defined and extract_vmutils.changed

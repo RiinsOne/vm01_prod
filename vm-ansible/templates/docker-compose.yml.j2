@@ -1,0 +1,84 @@
+version: '3'
+
+services:
+  vmagent:
+    image: victoriametrics/vmagent:{{ vm_version }}
+    restart: always
+    volumes:
+      - {{ data_dir }}/{{ vm_data_dir }}/vmagent/configs:/etc/vmagent/configs
+      - {{ data_dir }}/{{ vm_data_dir }}/vmagent/logs:/var/log/vmagent
+    command:
+      - -promscrape.config=/etc/vmagent/configs/main.yml
+      - -remoteWrite.url=http://vmauth:8427/insert/2/prometheus
+      # - -remoteWrite.url=http://vminsert:8480/insert/2/prometheus
+      # - -remoteWrite.url=http://vminsert:8480/insert/4/prometheus
+      - -loggerOutput=/var/log/vmagent/vmagent.log
+      - -loggerLevel=ERROR
+    ports:
+      - "8429:8429"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  vminsert:
+    image: victoriametrics/vminsert:{{ vm_version }}
+    restart: always
+    volumes:
+      - {{ data_dir }}/{{ vm_data_dir }}/vminsert/logs:/var/log/vminsert
+    command:
+      - -httpListenAddr=:8480
+      - -storageNode=vm-storage-01:{{ vmstorage_port }}
+      - -storageNode=vm-storage-02:{{ vmstorage_port }}
+      - -loggerOutput=/var/log/vminsert/vminsert.log
+      - -loggerLevel=ERROR
+    ports:
+      - "8480:8480"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  vmselect:
+    image: victoriametrics/vmselect:{{ vm_version }}
+    restart: always
+    volumes:
+      - {{ data_dir }}/{{ vm_data_dir }}/vmselect/logs:/var/log/vmselect
+    command:
+      - -httpListenAddr=:8481
+      - -storageNode=vm-storage-01:{{ vmstorage_port }}
+      - -storageNode=vm-storage-02:{{ vmstorage_port }}
+      - -loggerOutput=/var/log/vmselect/vmselect.log
+      - -loggerLevel=ERROR
+    ports:
+      - "8481:8481"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  vmauth:
+    image: victoriametrics/vmauth:{{ vm_version }}
+    restart: always
+    volumes:
+       - {{ data_dir }}/{{ vm_data_dir }}/vmauth/logs:/var/log/vmauth
+       - {{ data_dir }}/{{ vm_data_dir }}/vmauth/configs:/etc/vmauth
+    command:
+      - -auth.config=/etc/vmauth/config.yml
+      - -http.listenAddr=:8427
+      - -loggerLevel=ERROR
+      - -maxConcurrentRequests=500
+      - -maxIdleConnsPerHost=100
+    ports:
+      - "8427:8427"
+    extra_hosts:
+      - "vm-services-01:{{ hostvars['vm-services-01'].ansible_host }}"
+      - "vm-services-02:{{ hostvars['vm-services-02'].ansible_host }}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"

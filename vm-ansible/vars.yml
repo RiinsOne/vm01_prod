@@ -1,0 +1,13 @@
+vm_user: victoriametrics
+vm_group: victoriametrics
+vm_version: "1.120.0"
+data_dir: /app
+vm_data_dir: victoriametrics
+
+# VMStorage
+vmstorage_retention: "8d"
+vmstorage_port: 8482
+
+# VMAgent
+scrape_interval: "1m"
+evaluation_interval: "1m"

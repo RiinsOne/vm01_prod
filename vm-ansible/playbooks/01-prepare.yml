@@ -1,0 +1,71 @@
+---
+- hosts: all
+  become: yes
+  vars_files:
+    - ../vars.yml
+
+  tasks:
+    - name: Create Main App Dir
+      file:
+        path: "{{ data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # - name: Установка python3-pip (debian/ubuntu)
+    #   become: yes
+    #   ansible.builtin.apt:
+    #     name:
+    #       - python3-pip
+    #     state: present
+    #     update_cache: yes
+
+    # - name: Установка Docker SDK (если нужно)
+    #   become: yes
+    #   ansible.builtin.pip:
+    #     name:
+    #       - docker
+    #       - docker-compose
+    #     executable: pip3
+
+    - name: Ensure docker group exists
+      group:
+        name: docker
+        state: present
+
+    - name: Create VictoriaMetrics group
+      group:
+        name: "{{ vm_group }}"
+        system: yes
+
+    - name: Create VictoriaMetrics user
+      user:
+        name: "{{ vm_user }}"
+        group: "{{ vm_group }}"
+        system: yes
+        shell: "/bin/bash"
+        home: "/home/{{ vm_user }}"  # Изменили на /home
+        create_home: yes
+        comment: "VictoriaMetrics system user"
+
+    - name: Add victoriametrics to docker group
+      user:
+        name: "{{ vm_user }}"
+        groups: docker
+        append: yes  # Добавляем группу, а не заменяем существующие
+
+    - name: Install optional packages
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - tree
+        - htop
+      ignore_errors: yes
+      register: pkg_result
+
+    - name: Show installation results
+      debug:
+        msg: "Package {{ item.item }} installed: {{ not item.failed }}"
+      loop: "{{ pkg_result.results }}"
