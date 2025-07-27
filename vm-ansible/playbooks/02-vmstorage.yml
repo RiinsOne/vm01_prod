@@ -81,7 +81,7 @@
         owner: "{{ vm_user }}"
         group: "{{ vm_group }}"
         mode: '0644'
-      when: not vmstorage_service_stat.stat.exists
+      # when: not vmstorage_service_stat.stat.exists
       register: configured_vmstorage_service
 
     - name: Create systemd symlink
