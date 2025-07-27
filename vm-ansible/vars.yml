@@ -7,6 +7,9 @@ vm_data_dir: victoriametrics
 # VMStorage
 vmstorage_retention: "8d"
 vmstorage_port: 8482
+vmstorage_config_vminsert_addr: 8400
+vmstorage_config_vmselect_addr: 8401
+vmstorage_dedup_min_scrape_interval: "30s"
 
 # VMAgent
 scrape_interval: "1m"

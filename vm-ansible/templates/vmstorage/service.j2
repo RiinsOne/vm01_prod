@@ -5,12 +5,13 @@ After=network.target
 [Service]
 User={{ vm_user }}
 Group={{ vm_group }}
-ExecStart={{ vm_data_dir }}/vmstorage/bin/vmstorage-prod \
+ExecStart={{ data_dir}}/{{ vm_data_dir }}/vmstorage/bin/vmstorage-prod \
   -storageDataPath={{ data_dir }}/{{ vm_data_dir }}/vmstorage/data \
   -retentionPeriod={{ vmstorage_retention }} \
-  -httpListenAddr=:8481 \
-  -vminsertAddr=:{{ vmstorage_port }} \
-  -vmselectAddr=:{{ vmstorage_port }}
+  -httpListenAddr=:{{ vmstorage_port}} \
+  -vminsertAddr=:{{ vmstorage_config_vminsert_addr }} \
+  -vmselectAddr=:{{ vmstorage_config_vmselect_addr }} \
+  --dedup.minScrapeInterval={{ vmstorage_dedup_min_scrape_interval }}
 StandardOutput=append:{{ data_dir }}/{{ vm_data_dir }}/vmstorage/logs/vmstorage.log
 StandardError=append:{{ data_dir }}/{{ vm_data_dir }}/vmstorage/logs/vmstorage-error.log
 Restart=on-failure

@@ -1,0 +1,26 @@
+name: Ansible Uptime Check
+
+on:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  build-and-run:
+    runs-on: [ self-hosted]  # Запуск только на vm05
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: validate ansible files
+        run: |
+          ls -la vm-ansible/inventory.ini
+          ls -la vm-ansible/playbooks/*.yml
+          ls -la vm-ansible/vars.yml
+
+      - name: Run playbook
+        run: |
+          ANSIBLE_CONFIG=$(pwd)/ansible/ansible.cfg \
+          ansible-playbook ansible/playbooks/uptime.yml -v
+
+          ansible-playbook -i vm-ansible/inventori.ini /vm-ansible/playbooks/01-prepare.yml
