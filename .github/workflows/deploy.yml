@@ -20,4 +20,5 @@ jobs:
 
       - name: Run playbook
         run: |
-          ansible-playbook -i vm-ansible/inventory.ini vm-ansible/playbooks/01-prepare.yml
+          # ansible-playbook -i vm-ansible/inventory.ini vm-ansible/playbooks/01-prepare.yml
+          ansible-playbook -i vm-ansible/inventory.ini vm-ansible/playbooks/02-vmstorage.yml

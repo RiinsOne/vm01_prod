@@ -1,0 +1,106 @@
+services:
+  vmagent:
+    image: victoriametrics/vmagent:v1.120.0
+    container_name: vmagent
+    restart: always
+    volumes:
+      - /app/victoriametrics/vmagent/configs:/etc/vmagent/configs
+      #- /app/victoriametrics/vmagent/logs:/var/log/vmagent
+    command:
+      - -promscrape.config=/etc/vmagent/configs/main.yml
+      - -remoteWrite.url=http://vminsert:8480/insert/2/prometheus/api/v1/write
+      - -promscrape.cluster.name=vm01_prod
+      - -promscrape.cluster.replicationFactor=2
+      - -loggerOutput=stdout
+      - -loggerLevel=INFO
+    ports:
+      - "8429:8429"
+    networks:
+      - vm_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "1"
+        tag: "{{.Name}}"
+
+  vminsert:
+    image: victoriametrics/vminsert:v1.120.0-cluster
+    container_name: vminsert
+    restart: always
+    #volumes:
+      #- /app/victoriametrics/vminsert/logs:/var/log/vminsert
+    command:
+      - -httpListenAddr=:8480
+      - -storageNode=10.2.2.46:8400
+      - -storageNode=10.2.2.47:8400
+      - -replicationFactor=2
+      - -loggerOutput=stdout
+      - -loggerLevel=INFO
+    ports:
+      - "8480:8480"
+    networks:
+      - vm_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "1"
+        tag: "{{.Name}}"
+
+  vmselect:
+    image: victoriametrics/vmselect:v1.120.0-cluster
+    container_name: vmselect
+    restart: always
+    #volumes:
+      #- /app/victoriametrics/vmselect/logs:/var/log/vmselect
+    command:
+      - -httpListenAddr=:8481
+      - -storageNode=10.2.2.46:8401
+      - -storageNode=10.2.2.47:8401
+      - -dedup.minScrapeInterval=20s
+      - -loggerOutput=stdout
+      - -loggerLevel=INFO
+    ports:
+      - "8481:8481"
+    networks:
+      - vm_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "1"
+        tag: "{{.Name}}"
+
+  vmauth:
+    image: victoriametrics/vmauth:v1.120.0
+    container_name: vmauth
+    restart: always
+    volumes:
+      #- /app/victoriametrics/vmauth/logs:/var/log/vmauth
+      - /app/victoriametrics/vmauth/configs:/etc/vmauth
+    command:
+      - -auth.config=/etc/vmauth/config.yml
+      - -httpListenAddr=:8427
+      - -loggerOutput=stdout
+      - -loggerLevel=INFO
+      - -maxConcurrentRequests=500
+      - -maxIdleConnsPerBackend=100
+    ports:
+      - "8427:8427"
+    networks:
+      - vm_net
+    extra_hosts:
+      - "vm-services-01:10.2.2.44"
+      - "vm-services-02:10.2.2.45"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "1"
+        tag: "{{.Name}}"
+
+networks:
+  vm_net:
+    driver: bridge
+
