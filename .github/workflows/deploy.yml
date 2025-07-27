@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-run:
-    runs-on: [ self-hosted]  # Запуск только на vm05
+    runs-on: [ self-hosted]  # Запуск только на self-hosted раннере
 
     steps:
       - name: Checkout code
