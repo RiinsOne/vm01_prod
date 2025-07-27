@@ -20,7 +20,4 @@ jobs:
 
       - name: Run playbook
         run: |
-          ANSIBLE_CONFIG=$(pwd)/ansible/ansible.cfg \
-          ansible-playbook ansible/playbooks/uptime.yml -v
-
           ansible-playbook -i vm-ansible/inventori.ini /vm-ansible/playbooks/01-prepare.yml
