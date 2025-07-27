@@ -1,0 +1,23 @@
+name: Ansible Uptime Check
+
+on:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  build-and-run:
+    runs-on: [ self-hosted]  # Запуск только на self-hosted раннере
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: validate ansible files
+        run: |
+          ls -la vm-ansible/inventory.ini
+          ls -la vm-ansible/playbooks/*.yml
+          ls -la vm-ansible/vars.yml
+
+      - name: Run playbook
+        run: |
+          ansible-playbook -i vm-ansible/inventory.ini vm-ansible/playbooks/01-prepare.yml
